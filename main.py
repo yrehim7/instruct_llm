@@ -1,50 +1,48 @@
-from transformers import AutoModelForCausalLM, AutoTokenizer
-import torch
+import json
+import requests
+from flask import Flask, request, jsonify
 
-class InstructLLM:
-    def __init__(self, model_name="gpt2"):
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self.model = AutoModelForCausalLM.from_pretrained(model_name)
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.model.to(self.device)
+# Load FAQ data
+with open("faq_data.json", "r") as file:
+    faq_data = json.load(file)
 
-    def generate_response(self, instruction, max_length=100):
-        # Formatiere den Prompt im Instruction-Format
-        prompt = f"Instruction: {instruction}\nResponse:"
-        
-        # Tokenisiere den Input
-        inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
-        
-        # Generiere die Antwort
-        outputs = self.model.generate(
-            inputs["input_ids"],
-            max_length=max_length,
-            num_return_sequences=1,
-            temperature=0.7,
-            pad_token_id=self.tokenizer.eos_token_id
+# Claude API Key (Replace with your actual key)
+# Replace with your Claude.ai API key
+claude_api_key = "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"
+
+app = Flask(__name__)
+
+@app.route("/chat", methods=["POST"])
+def chat():
+    data = request.json
+    user_question = data.get("question", "").strip()
+
+    # Check if the question matches the FAQ database
+    answer = faq_data.get(user_question)
+    
+    if answer:
+        return jsonify({"response": answer})
+
+    # If no match, use OpenAI for a response
+   # If no match, use Claude.ai for a response
+    try:
+        response = requests.post(
+            "https://api.claude.ai/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {claude_api_key}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "messages": [
+                    {"role": "system", "content": "You are a helpful FAQ chatbot. Answer briefly and clearly."},
+                    {"role": "user", "content": user_question}
+                ]
+            }
         )
-        
-        # Dekodiere und gib die Antwort zurück
-        response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
-        return response.split("Response:")[-1].strip()
-
-def main():
-    # Initialisiere das Modell
-    llm = InstructLLM()
-    
-    # Beispiel-Instruktionen
-    instructions = [
-        "Erkläre mir das Konzept von künstlicher Intelligenz in einem Satz.",
-        "Schreibe ein kurzes Gedicht über Programmierung.",
-        "Gib mir drei Tipps zum effektiven Lernen."
-    ]
-    
-    # Generiere und zeige Antworten
-    for instruction in instructions:
-        print(f"\nInstruction: {instruction}")
-        response = llm.generate_response(instruction)
-        print(f"Response: {response}\n")
-        print("-" * 50)
+        response_data = response.json()
+        return jsonify({"response": response_data['choices'][0]['message']['content']})
+    except Exception as e:
+        return jsonify({"response": "Error: Unable to get response from Claude.ai."})
 
 if __name__ == "__main__":
-    main()
+    app.run(debug=True)
