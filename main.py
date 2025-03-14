@@ -50,6 +50,8 @@ def chat():
             return jsonify({"response": f"Error: Unexpected response from OpenAI. {response_data}"}), 500
     except Exception as e:
         return jsonify({"response": f"Error: Unable to get response from OpenAI. {str(e)}"}), 500
+
 if __name__ == "__main__":
+    # Run the Flask app # To run in production, use a WSGI server like Waitress, run the following command in the terminal:
     app.debug = True
     app.run(host='0.0.0.0', port=5000)
