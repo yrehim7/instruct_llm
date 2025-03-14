@@ -3,16 +3,19 @@ import requests
 from flask import Flask, request, jsonify
 
 # Load FAQ data
-with open("D:\repositories\instructLLM\faq_data.json", "r") as file:
+with open("faq_data.json", "r") as file:
     faq_data = json.load(file)
 
 # OpenAI API Key (Replace with your actual key)
-openai_api_key = " **** "
+openai_api_key = "----"
 
 app = Flask(__name__)
 
 @app.route("/chat", methods=["POST"])
 def chat():
+    if request.method != "POST":
+        return jsonify({"response": "Error: Method not allowed."}), 405
+
     data = request.json
     user_question = data.get("question", "").strip()
 
@@ -39,12 +42,14 @@ def chat():
             }
         )
         response_data = response.json()
-        return jsonify({"response": response_data['choices'][0]['message']['content']})
+        print("OpenAI API Response:", response_data)  # Debug statement
+
+        if "choices" in response_data:
+            return jsonify({"response": response_data['choices'][0]['message']['content']})
+        else:
+            return jsonify({"response": f"Error: Unexpected response from OpenAI. {response_data}"}), 500
     except Exception as e:
-        return jsonify({"response": "Error: Unable to get response from OpenAI."})
-
+        return jsonify({"response": f"Error: Unable to get response from OpenAI. {str(e)}"}), 500
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5000, debug=True)
-
-# To run in production, use a WSGI server like Waitress, run the following command in the terminal:
-# waitress-serve --port=5000 main:app
+    app.debug = True
+    app.run(host='0.0.0.0', port=5000)
