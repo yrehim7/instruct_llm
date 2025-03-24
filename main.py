@@ -1,57 +1,73 @@
 import json
-import requests
 from flask import Flask, request, jsonify
+import logging
+from langchain.chat_models import ChatOpenAI
+from langchain.chains import LLMChain
+from langchain.prompts import PromptTemplate
+from langchain.vectorstores import FAISS
+from langchain.embeddings import OpenAIEmbeddings
+
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
 
 # Load FAQ data
+logging.debug("Loading FAQ data")
 with open("faq_data.json", "r") as file:
     faq_data = json.load(file)
+logging.debug("FAQ data loaded")
 
-# OpenAI API Key (Replace with your actual key)
-openai_api_key = "----"
+openai_api_key = "------"
 
 app = Flask(__name__)
 
+# Initialize LangChain components
+logging.debug("Initializing LangChain components")
+llm = ChatOpenAI(openai_api_key=openai_api_key, model="gpt-3.5-turbo")
+prompt_template = PromptTemplate(
+    input_variables=["question"],
+    template="You are a helpful FAQ chatbot. Answer briefly and clearly.\n\nUser: {question}\nChatbot:"
+)
+llm_chain = LLMChain(llm=llm, prompt=prompt_template)
+logging.debug("LangChain components initialized")
+
+# Initialize vector store
+logging.debug("Initializing vector store")
+embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
+faq_texts = list(faq_data.keys())
+faq_vectors = FAISS.from_texts(faq_texts, embeddings)
+logging.debug("Vector store initialized")
+
 @app.route("/chat", methods=["POST"])
 def chat():
+    logging.debug("Received a request at /chat endpoint")
     if request.method != "POST":
+        logging.error("Method not allowed")
         return jsonify({"response": "Error: Method not allowed."}), 405
 
-    data = request.json
-    user_question = data.get("question", "").strip()
-
-    # Check if the question matches the FAQ database
-    answer = faq_data.get(user_question)
-    
-    if answer:
-        return jsonify({"response": answer})
-
-    # If no match, use OpenAI for a response
     try:
-        response = requests.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {openai_api_key}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "model": "gpt-3.5-turbo",
-                "messages": [
-                    {"role": "system", "content": "You are a helpful FAQ chatbot. Answer briefly and clearly."},
-                    {"role": "user", "content": user_question}
-                ]
-            }
-        )
-        response_data = response.json()
-        print("OpenAI API Response:", response_data)  # Debug statement
+        data = request.get_json()
+        logging.debug(f"Request data: {data}")
+        user_question = data.get("question", "").strip()
+        logging.debug(f"User question: {user_question}")
 
-        if "choices" in response_data:
-            return jsonify({"response": response_data['choices'][0]['message']['content']})
-        else:
-            return jsonify({"response": f"Error: Unexpected response from OpenAI. {response_data}"}), 500
+        # Check if the question matches the FAQ database using vector search
+        logging.debug("Searching for the most relevant FAQ answer")
+        search_results = faq_vectors.similarity_search(user_question, k=1)
+        if search_results:
+            answer = faq_data.get(search_results[0].text)
+            logging.debug(f"Found answer in FAQ: {answer}")
+            return jsonify({"response": answer})
+
+        # If no match, use LangChain for a response
+        logging.debug("No match in FAQ, using LangChain for response")
+        response = llm_chain.run(user_question)
+        logging.debug(f"Response from LangChain: {response}")
+        return jsonify({"response": response})
     except Exception as e:
-        return jsonify({"response": f"Error: Unable to get response from OpenAI. {str(e)}"}), 500
+        logging.error(f"Error processing request: {str(e)}")
+        return jsonify({"response": f"Error: Unable to process request. {str(e)}"}), 500
 
 if __name__ == "__main__":
-    # Run the Flask app # To run in production, use a WSGI server like Waitress, run the following command in the terminal:
-    app.debug = True
-    app.run(host='0.0.0.0', port=5000)
+    logging.info("Starting Flask app")
+    app.run(host='0.0.0.0', port=5000, threaded=True)
+
