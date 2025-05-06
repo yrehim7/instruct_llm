@@ -31,7 +31,7 @@ if user_input:
     if response.status_code == 200:
         bot_response = response.json().get("response", "No response available.")
     else:
-        bot_response = "❌ Error: Could not get a response."
+        bot_response = " Error: Could not get a response."
 
     # Add chatbot response to chat history
     st.session_state.messages.append({"role": "assistant", "content": bot_response})
