@@ -15,7 +15,7 @@ for message in st.session_state.messages:
         st.write(message["content"])
 
 # User input field
-user_input = st.chat_input("Type your question here...")
+user_input = st.chat_input("Type your question right here...")
 
 if user_input:
     # Add user message to chat history
@@ -27,14 +27,10 @@ if user_input:
         json={"question": user_input}
     )
 
-    # Get response from chatbot
-    if response.status_code == 200:
-        bot_response = response.json().get("response", "No response available.")
-    else:
-        bot_response = " Error: Could not get a response."
-
-    # Add chatbot response to chat history
-    st.session_state.messages.append({"role": "assistant", "content": bot_response})
-
-    # Refresh the page to show the updated conversation
-    st.rerun()
+if response.status_code == 200:
+    bot_response = response.json().get("response", "No response available.")
+else:
+     bot_response = " Error: Could not get a response."
+    
+st.session_state.messages.append({"role": "assistant", "content": bot_response})
+st.rerun()

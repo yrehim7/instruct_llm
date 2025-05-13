@@ -1,11 +1,11 @@
 import json
 from flask import Flask, request, jsonify
 import logging
-from langchain.chat_models import ChatOpenAI
+from langchain.chat_models import ChatAnthropic  # Updated to use Anthropic's model
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
 from langchain.vectorstores import FAISS
-from langchain.embeddings import OpenAIEmbeddings
+from langchain.embeddings import OpenAIEmbeddings  # Keeping OpenAI embeddings unless switching to Claude-compatible embeddings
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -16,13 +16,13 @@ with open("faq_data.json", "r") as file:
     faq_data = json.load(file)
 logging.debug("FAQ data loaded")
 
-openai_api_key = "------"
+claude_api_key = "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"
 
 app = Flask(__name__)
 
 # Initialize LangChain components
 logging.debug("Initializing LangChain components")
-llm = ChatOpenAI(openai_api_key=openai_api_key, model="gpt-3.5-turbo")
+llm = ChatAnthropic(anthropic_api_key=claude_api_key, model="claude-2")  # Updated to use Claude
 prompt_template = PromptTemplate(
     input_variables=["question"],
     template="You are a helpful FAQ chatbot. Answer briefly and clearly.\n\nUser: {question}\nChatbot:"
@@ -32,7 +32,7 @@ logging.debug("LangChain components initialized")
 
 # Initialize vector store
 logging.debug("Initializing vector store")
-embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
+embeddings = OpenAIEmbeddings(openai_api_key=claude_api_key)  # Keeping OpenAI embeddings for now
 faq_texts = list(faq_data.keys())
 faq_vectors = FAISS.from_texts(faq_texts, embeddings)
 logging.debug("Vector store initialized")
@@ -70,4 +70,3 @@ def chat():
 if __name__ == "__main__":
     logging.info("Starting Flask app")
     app.run(host='0.0.0.0', port=5000, threaded=True)
-
