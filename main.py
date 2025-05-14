@@ -16,7 +16,7 @@ with open("faq_data.json", "r") as file:
     faq_data = json.load(file)
 logging.debug("FAQ data loaded")
 
-claude_api_key = "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"
+claude_api_key = "-------"
 
 app = Flask(__name__)
 
